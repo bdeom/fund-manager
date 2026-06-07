@@ -561,6 +561,12 @@ tbody td:first-child { text-align: left; }
 .perf-bar-track { flex: 1; height: 6px; background: var(--bg3); border-radius: 3px; overflow: hidden; max-width: 200px; }
 .perf-bar-fill { height: 100%; border-radius: 3px; }
 
+
+.horizon-btn.active {
+  background: var(--accent);
+  color: #000;
+  border-color: var(--accent);
+}
 /* EMPTY STATE */
 .empty {
   text-align: center;
@@ -682,14 +688,17 @@ tbody td:first-child { text-align: left; }
   <!-- ═══ FORECAST TAB ═══ -->
   <section class="tab-panel" id="tab-forecast">
     <div class="section-header">
-      <div class="section-title">LSTM 10-DAY RETURN FORECAST</div>
-      <div style="display:flex;gap:8px;align-items:center;">
-        <span style="font-family:var(--font-mono);font-size:11px;color:var(--muted)">~2 min to compute</span>
+      <div class="section-title">LSTM MULTI-HORIZON FORECAST</div>
+      <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
+        <span style="font-family:var(--font-mono);font-size:11px;color:var(--muted)">Horizons:</span>
+        <button class="btn btn-ghost btn-sm horizon-btn active" id="h10" onclick="switchHorizon(10)">10D</button>
+        <button class="btn btn-ghost btn-sm horizon-btn" id="h30" onclick="switchHorizon(30)">30D</button>
+        <button class="btn btn-ghost btn-sm horizon-btn" id="h90" onclick="switchHorizon(90)">90D</button>
         <button class="btn btn-primary btn-sm" id="forecastBtn" onclick="runForecast()">▶ RUN LSTM</button>
       </div>
     </div>
     <div id="forecastOutput">
-      <div class="empty">Click "RUN LSTM" to generate 10-day return forecasts for all holdings using LSTM neural networks.</div>
+      <div class="empty">Click "RUN LSTM" to generate 10 / 30 / 90-day return forecasts for all holdings using LSTM neural networks.</div>
     </div>
   </section>
 
@@ -1129,12 +1138,28 @@ function renderForecastResults(data) {
   const out = document.getElementById('forecastOutput');
   Object.values(forecastCharts).forEach(c => c.destroy());
   forecastCharts = {};
+  window._forecastData = data;
 
   if (!data || Object.keys(data).length === 0) {
     out.innerHTML = '<div class="empty">No forecast data returned.</div>';
     return;
   }
+  renderForecastCards(data, window._activeHorizon || 10);
+}
 
+function switchHorizon(days) {
+  window._activeHorizon = days;
+  document.querySelectorAll('.horizon-btn').forEach(b => b.classList.remove('active'));
+  document.getElementById('h'+days)?.classList.add('active');
+  if (window._forecastData) {
+    Object.values(forecastCharts).forEach(c => c.destroy());
+    forecastCharts = {};
+    renderForecastCards(window._forecastData, days);
+  }
+}
+
+function renderForecastCards(data, days) {
+  const out = document.getElementById('forecastOutput');
   out.innerHTML = '<div class="forecast-grid" id="forecastGrid"></div>';
   const grid = document.getElementById('forecastGrid');
 
@@ -1143,40 +1168,61 @@ function renderForecastResults(data) {
       grid.innerHTML += `<div class="forecast-card"><div class="fc-header"><span class="fc-ticker">${ticker}</span><span style="color:var(--red);font-size:11px">${d.error}</span></div></div>`;
       continue;
     }
-    const cardId   = 'fc_' + ticker.replace(/[^a-zA-Z0-9]/g,'_');
-    const retSign  = d.expected_return >= 0 ? '+' : '';
-    const retClass = d.expected_return > 2 ? 'pos' : (d.expected_return < -2 ? 'neg' : '');
+
+    const h = d.horizons?.[String(days)];
+    if (!h) {
+      grid.innerHTML += `<div class="forecast-card"><div class="fc-header"><span class="fc-ticker">${ticker}</span><span style="color:var(--muted);font-size:11px">No ${days}D data</span></div></div>`;
+      continue;
+    }
+
+    const cardId   = 'fc_' + ticker.replace(/[^a-zA-Z0-9]/g,'_') + '_' + days;
+    const retSign  = h.expected_return >= 0 ? '+' : '';
+    const retClass = h.expected_return > 2 ? 'pos' : (h.expected_return < -2 ? 'neg' : '');
+
+    // Show all 3 horizon returns in the card
+    const h10ret = d.horizons?.['10']?.expected_return;
+    const h30ret = d.horizons?.['30']?.expected_return;
+    const h90ret = d.horizons?.['90']?.expected_return;
+
+    const horizonMeta = `
+      <div class="fc-meta" style="margin-top:8px;border-top:1px solid var(--border);padding-top:8px">
+        ${h10ret !== undefined ? `<div class="fc-meta-item"><div class="fc-meta-label">10D</div><div class="fc-meta-value ${h10ret>=0?'pos':'neg'}">${h10ret>=0?'+':''}${h10ret?.toFixed(2)}%</div></div>` : ''}
+        ${h30ret !== undefined ? `<div class="fc-meta-item"><div class="fc-meta-label">30D</div><div class="fc-meta-value ${h30ret>=0?'pos':'neg'}">${h30ret>=0?'+':''}${h30ret?.toFixed(2)}%</div></div>` : ''}
+        ${h90ret !== undefined ? `<div class="fc-meta-item"><div class="fc-meta-label">90D</div><div class="fc-meta-value ${h90ret>=0?'pos':'neg'}">${h90ret>=0?'+':''}${h90ret?.toFixed(2)}%</div></div>` : ''}
+      </div>`;
 
     grid.innerHTML += `
       <div class="forecast-card">
         <div class="fc-header">
           <div style="display:flex;align-items:center;gap:8px">
             <span class="fc-ticker">${ticker}</span>
-            <span class="fc-sig fc-${d.signal}">${d.signal}</span>
+            <span class="fc-sig fc-${h.signal}">${h.signal}</span>
+            <span style="font-family:var(--font-mono);font-size:9px;color:var(--muted)">${days}D</span>
           </div>
-          <span class="fc-ret ${retClass}">${retSign}${d.expected_return.toFixed(2)}%</span>
+          <span class="fc-ret ${retClass}">${retSign}${h.expected_return.toFixed(2)}%</span>
         </div>
         <div class="fc-chart"><canvas id="${cardId}"></canvas></div>
         <div class="fc-meta">
           <div class="fc-meta-item"><div class="fc-meta-label">CURRENT</div><div class="fc-meta-value">$${d.current_price.toFixed(2)}</div></div>
-          <div class="fc-meta-item"><div class="fc-meta-label">10D TARGET</div><div class="fc-meta-value ${retClass}">$${d.forecast_10d[d.forecast_10d.length-1].toFixed(2)}</div></div>
-          <div class="fc-meta-item"><div class="fc-meta-label">HORIZON</div><div class="fc-meta-value">10 DAYS</div></div>
+          <div class="fc-meta-item"><div class="fc-meta-label">${days}D TARGET</div><div class="fc-meta-value ${retClass}">$${h.forecast_prices[h.forecast_prices.length-1].toFixed(2)}</div></div>
+          <div class="fc-meta-item"><div class="fc-meta-label">HORIZON</div><div class="fc-meta-value">${days} DAYS</div></div>
         </div>
+        ${horizonMeta}
       </div>`;
 
     setTimeout(() => {
       const ctx = document.getElementById(cardId);
       if (!ctx) return;
-      const isPos = d.expected_return >= 0;
-      forecastCharts[ticker] = new Chart(ctx, {
+      const isPos = h.expected_return >= 0;
+      forecastCharts[ticker+'_'+days] = new Chart(ctx, {
         type: 'line',
         data: {
-          labels: d.dates,
+          labels: h.dates,
           datasets: [{
-            data: d.forecast_10d,
+            data: h.forecast_prices,
             borderColor: isPos ? '#00e5a0' : '#ff4560',
             backgroundColor: isPos ? 'rgba(0,229,160,0.08)' : 'rgba(255,69,96,0.08)',
-            borderWidth: 2, fill: true, tension: 0.4, pointRadius: 2,
+            borderWidth: 2, fill: true, tension: 0.4, pointRadius: 1,
             pointBackgroundColor: isPos ? '#00e5a0' : '#ff4560'
           }]
         },
@@ -1184,14 +1230,17 @@ function renderForecastResults(data) {
           responsive: true, maintainAspectRatio: false,
           plugins: { legend: { display: false } },
           scales: {
-            x: { grid: { display: false }, ticks: { color: '#4a6070', font: { family: 'DM Mono', size: 9 } } },
-            y: { grid: { color: '#1e2d3d' }, ticks: { color: '#4a6070', font: { family: 'DM Mono', size: 9 }, callback: v => '$'+v.toFixed(0) } }
+            x: { grid: { display: false }, ticks: { color: '#4a6070', font: { family: 'DM Mono', size: 9 },
+                 maxTicksLimit: 8 } },
+            y: { grid: { color: '#1e2d3d' }, ticks: { color: '#4a6070', font: { family: 'DM Mono', size: 9 },
+                 callback: v => '$'+v.toFixed(0) } }
           }
         }
       });
     }, 50);
   }
 }
+
 
 // ─────────────────────────────────────────────
 // NSGA-II OPTIMIZER — async polling

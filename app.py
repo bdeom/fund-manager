@@ -272,10 +272,10 @@ def _run_lstm_job(job_id, tickers):
             signal = "BULLISH" if exp_return > 2 else ("BEARISH" if exp_return < -2 else "NEUTRAL")
             results[ticker] = {
                 "current_price":   round(float(prices[-1]), 2),
-                "forecast_10d":    [round(v, 2) for v in forecast_vals],
+                "forecast_prices":    [round(v, 2) for v in forecast_vals],
                 "expected_return": round(exp_return, 2),
                 "signal":          signal,
-                "dates": [(datetime.now()+timedelta(days=j+1)).strftime("%m/%d") for j in range(10)]
+                "dates": [(datetime.now()+timedelta(days=j+1)).strftime("%m/%d") for j in range(forecast_days)]
             }
         except Exception as e:
             results[ticker] = {"error": str(e)}
