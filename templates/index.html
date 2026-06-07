@@ -1,0 +1,604 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Z-HA Scanner</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@300;400;500&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#090c0f;--bg2:#0f1318;--bg3:#151b22;--bg4:#1c242e;
+  --bd:#1e2a36;--bd2:#253242;
+  --tx:#cdd8e3;--tx2:#7a9ab5;--tx3:#3d5468;
+  --g:#00d08a;--gd:#002d1e;--gm:#00956a;
+  --r:#ff4f4f;--rd:#2d0808;--rm:#cc2c2c;
+  --a:#f0a500;--ad:#2e1f00;
+  --b:#3a9dff;--bd3:#0a1f3d;
+  --mono:'IBM Plex Mono',monospace;
+  --sans:'IBM Plex Sans',sans-serif;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:var(--bg);color:var(--tx);font-family:var(--sans);font-size:13px;line-height:1.5;min-height:100vh}
+
+/* HEADER */
+.header{background:var(--bg2);border-bottom:1px solid var(--bd);padding:13px 24px;display:flex;justify-content:space-between;align-items:center;position:sticky;top:0;z-index:100}
+.logo{font-family:var(--mono);font-size:14px;font-weight:600;color:var(--g);letter-spacing:.08em;display:flex;align-items:center;gap:10px}
+.logo-sep{color:var(--tx3)}
+.logo-sub{font-size:11px;color:var(--tx3);font-weight:400}
+.header-right{display:flex;align-items:center;gap:16px;font-family:var(--mono);font-size:11px;color:var(--tx3)}
+#clock{color:var(--tx2)}
+
+/* TIMEFRAME SWITCHER */
+.tf-switcher{background:var(--bg3);border-bottom:1px solid var(--bd);padding:10px 24px;display:flex;gap:6px;align-items:center}
+.tf-btn{
+  height:34px;padding:0 18px;border-radius:3px;font-family:var(--mono);
+  font-size:12px;font-weight:600;letter-spacing:.06em;cursor:pointer;
+  border:1px solid var(--bd2);background:var(--bg4);color:var(--tx3);
+  transition:all .15s;display:inline-flex;align-items:center;gap:7px;
+}
+.tf-btn:hover{color:var(--tx2)}
+.tf-btn.active-daily {background:var(--ad);color:var(--a);border-color:var(--a)}
+.tf-btn.active-weekly{background:var(--bd3);color:var(--b);border-color:var(--b)}
+.tf-label{font-family:var(--mono);font-size:10px;color:var(--tx3);letter-spacing:.08em;margin-right:4px}
+
+/* CONTROLS */
+.controls{background:var(--bg2);border-bottom:1px solid var(--bd);padding:9px 24px;display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+select,input[type=number]{background:var(--bg3);border:1px solid var(--bd2);color:var(--tx);font-family:var(--mono);font-size:12px;padding:5px 10px;border-radius:3px;outline:none;height:32px}
+select:focus,input[type=number]:focus{border-color:var(--g)}
+.btn{height:32px;padding:0 14px;border-radius:3px;font-family:var(--mono);font-size:12px;font-weight:500;letter-spacing:.04em;cursor:pointer;border:1px solid;display:inline-flex;align-items:center;gap:6px;transition:opacity .15s}
+.btn:hover{opacity:.85}
+.btn-scan-d{background:var(--ad);color:var(--a);border-color:var(--a)}
+.btn-scan-w{background:var(--bd3);color:var(--b);border-color:var(--b)}
+.btn-stop{background:var(--rd);color:var(--r);border-color:var(--rm)}
+.btn-clear{background:var(--bg3);color:var(--tx2);border-color:var(--bd2)}
+.sep{width:1px;height:24px;background:var(--bd);flex-shrink:0}
+.param-label{font-family:var(--mono);font-size:11px;color:var(--tx3)}
+input[type=number]{width:64px}
+
+/* PROGRESS */
+.progress-wrap{background:var(--bg3);border-bottom:1px solid var(--bd);padding:8px 24px;display:none}
+.progress-wrap.show{display:block}
+.progress-info{display:flex;justify-content:space-between;font-family:var(--mono);font-size:11px;color:var(--tx3);margin-bottom:5px}
+.progress-track{height:3px;background:var(--bg4);border-radius:2px;overflow:hidden}
+.progress-fill{height:100%;border-radius:2px;transition:width .3s ease;width:0}
+.progress-fill.daily {background:var(--a)}
+.progress-fill.weekly{background:var(--b)}
+
+/* STATS */
+.stats{background:var(--bg2);border-bottom:1px solid var(--bd);padding:10px 24px;gap:28px;flex-wrap:wrap;display:none}
+.stats.show{display:flex}
+.stat-label{font-family:var(--mono);font-size:10px;color:var(--tx3);letter-spacing:.08em;text-transform:uppercase}
+.stat-val{font-family:var(--mono);font-size:20px;font-weight:600}
+.sv-g{color:var(--g)}.sv-r{color:var(--r)}.sv-d{color:var(--tx2)}.sv-a{color:var(--a)}.sv-b{color:var(--b)}
+
+/* SIGNAL TABS */
+.tabs{background:var(--bg2);border-bottom:1px solid var(--bd);padding:0 24px;display:flex}
+.tab{font-family:var(--mono);font-size:12px;letter-spacing:.05em;padding:10px 18px;cursor:pointer;border:none;background:transparent;color:var(--tx3);border-bottom:2px solid transparent;transition:all .15s}
+.tab:hover{color:var(--tx2)}
+.tab.active-all {color:var(--tx);border-bottom-color:var(--tx2)}
+.tab.active-buy {color:var(--g);border-bottom-color:var(--g)}
+.tab.active-sell{color:var(--r);border-bottom-color:var(--r)}
+
+/* TOOLBAR */
+.toolbar{padding:8px 24px;background:var(--bg3);border-bottom:1px solid var(--bd);display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+.toolbar input[type=text]{background:var(--bg4);border:1px solid var(--bd2);color:var(--tx);font-family:var(--mono);font-size:12px;padding:5px 10px;border-radius:3px;outline:none;width:180px;height:30px}
+.toolbar input[type=text]:focus{border-color:var(--g)}
+.toolbar select{height:30px;font-size:11px}
+
+/* TABLE */
+.table-wrap{overflow-x:auto;padding:0 24px 60px}
+.results-table{width:100%;border-collapse:collapse;margin-top:10px;font-size:12px}
+.results-table thead tr{border-bottom:1px solid var(--bd2)}
+.results-table th{font-family:var(--mono);font-size:10px;color:var(--tx3);letter-spacing:.08em;text-transform:uppercase;padding:7px 10px;text-align:left;font-weight:400;white-space:nowrap;cursor:pointer;user-select:none}
+.results-table th:hover{color:var(--tx2)}
+.results-table th.sort-asc::after{content:" ↑"}
+.results-table th.sort-desc::after{content:" ↓"}
+.result-row{border-bottom:1px solid var(--bd);transition:background .1s;animation:fadeIn .25s ease}
+.result-row:hover{background:var(--bg3)}
+.result-row td{padding:7px 10px;vertical-align:middle;white-space:nowrap}
+@keyframes fadeIn{from{opacity:0;transform:translateY(-3px)}to{opacity:1;transform:translateY(0)}}
+
+.badge{display:inline-flex;align-items:center;gap:4px;padding:2px 8px;border-radius:2px;font-family:var(--mono);font-size:11px;font-weight:600;letter-spacing:.04em}
+.badge-buy {background:var(--gd);color:var(--g);border:1px solid var(--gm)}
+.badge-sell{background:var(--rd);color:var(--r);border:1px solid var(--rm)}
+.tf-tag-d{display:inline-block;padding:1px 6px;border-radius:2px;font-family:var(--mono);font-size:9px;font-weight:600;letter-spacing:.06em;background:var(--ad);color:var(--a);border:1px solid var(--a);margin-left:4px;vertical-align:middle}
+.tf-tag-w{display:inline-block;padding:1px 6px;border-radius:2px;font-family:var(--mono);font-size:9px;font-weight:600;letter-spacing:.06em;background:var(--bd3);color:var(--b);border:1px solid var(--b);margin-left:4px;vertical-align:middle}
+.sym{font-weight:600;color:#e8f0f8;font-size:13px;display:block}
+.univ{font-size:10px;color:var(--tx3);display:block;margin-top:1px;letter-spacing:.02em}
+.mono{font-family:var(--mono)}
+.price{color:var(--tx2)}
+.dim{color:var(--tx3)}
+.chart-cell{padding:3px 10px !important}
+
+/* EMPTY */
+.empty{text-align:center;padding:70px 24px;color:var(--tx3);font-family:var(--mono)}
+.empty h3{font-size:13px;font-weight:500;color:var(--tx2);margin-bottom:8px;letter-spacing:.04em}
+.empty p{font-size:11px;line-height:1.8}
+
+/* DUAL SCAN indicator */
+.scan-indicator{display:inline-flex;align-items:center;gap:5px;font-family:var(--mono);font-size:11px}
+.dot{width:6px;height:6px;border-radius:50%;display:inline-block}
+.dot-daily {background:var(--a)}
+.dot-weekly{background:var(--b)}
+.dot-idle  {background:var(--tx3)}
+
+::-webkit-scrollbar{width:5px;height:5px}
+::-webkit-scrollbar-track{background:var(--bg)}
+::-webkit-scrollbar-thumb{background:var(--bg4);border-radius:3px}
+
+@media(max-width:700px){
+  .col-hide{display:none}
+  .header,.controls,.stats,.toolbar,.table-wrap,.tf-switcher{padding-left:14px;padding-right:14px}
+  .tabs{padding:0 14px}
+}
+</style>
+</head>
+<body>
+
+<!-- HEADER -->
+<div class="header">
+  <div class="logo">
+    <span>Z-HA</span><span class="logo-sep">/</span><span>SCANNER</span>
+    <span class="logo-sub" style="margin-left:4px">DAILY &amp; WEEKLY · Z-SCORE HEIKIN ASHI</span>
+  </div>
+  <div class="header-right">
+    <span id="clock">--:--:--</span>
+    <span class="scan-indicator">
+      <span class="dot dot-idle" id="dotDaily"></span>
+      <span id="statusDaily" style="color:var(--tx3)">D:IDLE</span>
+    </span>
+    <span class="scan-indicator">
+      <span class="dot dot-idle" id="dotWeekly"></span>
+      <span id="statusWeekly" style="color:var(--tx3)">W:IDLE</span>
+    </span>
+  </div>
+</div>
+
+<!-- TIMEFRAME SWITCHER -->
+<div class="tf-switcher">
+  <span class="tf-label">VIEW</span>
+  <button class="tf-btn active-daily" id="tfDaily"  onclick="switchView('daily')">◈ DAILY</button>
+  <button class="tf-btn"              id="tfWeekly" onclick="switchView('weekly')">◈ WEEKLY</button>
+  <button class="tf-btn"              id="tfBoth"   onclick="switchView('both')" style="margin-left:4px">⊞ BOTH</button>
+</div>
+
+<!-- CONTROLS -->
+<div class="controls">
+  <!-- Universe dropdown with checkboxes -->
+  <div style="position:relative" id="univDropWrap">
+    <button class="btn btn-clear" id="univDropBtn" onclick="toggleUnivDrop(event)"
+      style="min-width:180px;justify-content:space-between;height:32px">
+      <span id="univLabel">▸ ALL UNIVERSES</span>
+      <span style="opacity:.5;font-size:10px">▾</span>
+    </button>
+    <div id="univDrop" style="display:none;position:absolute;top:36px;left:0;z-index:200;
+      background:var(--bg3);border:1px solid var(--bd2);border-radius:3px;
+      min-width:200px;padding:6px 0;box-shadow:0 8px 24px rgba(0,0,0,.5)">
+      <label style="display:flex;align-items:center;gap:8px;padding:6px 14px;cursor:pointer;font-family:var(--mono);font-size:12px;border-bottom:1px solid var(--bd)">
+        <input type="checkbox" id="univAll" checked onchange="univAllChanged()" style="accent-color:var(--g)">
+        <span style="color:var(--tx)">ALL UNIVERSES</span>
+      </label>
+      <label style="display:flex;align-items:center;gap:8px;padding:5px 14px;cursor:pointer;font-family:var(--mono);font-size:11px">
+        <input type="checkbox" class="univ-cb" value="NASDAQ100" onchange="univCbChanged()" style="accent-color:var(--g)">
+        <span style="color:var(--tx2)">NASDAQ100</span>
+      </label>
+      <label style="display:flex;align-items:center;gap:8px;padding:5px 14px;cursor:pointer;font-family:var(--mono);font-size:11px">
+        <input type="checkbox" class="univ-cb" value="SP500" onchange="univCbChanged()" style="accent-color:var(--g)">
+        <span style="color:var(--tx2)">SP500</span>
+      </label>
+      <label style="display:flex;align-items:center;gap:8px;padding:5px 14px;cursor:pointer;font-family:var(--mono);font-size:11px">
+        <input type="checkbox" class="univ-cb" value="RUSSELL2000" onchange="univCbChanged()" style="accent-color:var(--g)">
+        <span style="color:var(--tx2)">RUSSELL2000</span>
+      </label>
+      <label style="display:flex;align-items:center;gap:8px;padding:5px 14px;cursor:pointer;font-family:var(--mono);font-size:11px">
+        <input type="checkbox" class="univ-cb" value="COMMODITIES" onchange="univCbChanged()" style="accent-color:var(--g)">
+        <span style="color:var(--tx2)">COMMODITIES</span>
+      </label>
+      <label style="display:flex;align-items:center;gap:8px;padding:5px 14px;cursor:pointer;font-family:var(--mono);font-size:11px">
+        <input type="checkbox" class="univ-cb" value="ETFS" onchange="univCbChanged()" style="accent-color:var(--g)">
+        <span style="color:var(--tx2)">ETFS</span>
+      </label>
+      <label style="display:flex;align-items:center;gap:8px;padding:5px 14px;cursor:pointer;font-family:var(--mono);font-size:11px">
+        <input type="checkbox" class="univ-cb" value="CRYPTO" onchange="univCbChanged()" style="accent-color:var(--g)">
+        <span style="color:var(--tx2)">CRYPTO</span>
+      </label>
+
+    </div>
+  </div>
+
+  <div class="sep"></div>
+  <span class="param-label">Z</span>
+  <input type="number" id="zPeriod" value="21" min="5" max="100" step="1">
+  <span class="param-label">THRESHOLD ±</span>
+  <input type="number" id="threshold" value="2.0" min="0.5" max="5" step="0.5">
+
+  <div class="sep"></div>
+  <button class="btn btn-scan-d" id="btnScanD" onclick="startScan('1d')">◈ SCAN DAILY</button>
+  <button class="btn btn-scan-w" id="btnScanW" onclick="startScan('1wk')">◈ SCAN WEEKLY</button>
+  <button class="btn btn-stop"   id="btnStopD" onclick="stopScan('1d')"  style="display:none">■ STOP D</button>
+  <button class="btn btn-stop"   id="btnStopW" onclick="stopScan('1wk')" style="display:none">■ STOP W</button>
+  <div class="sep"></div>
+  <button class="btn btn-clear" onclick="clearAll()">✕ CLEAR ALL</button>
+</div>
+
+<!-- PROGRESS DAILY -->
+<div class="progress-wrap" id="progressD">
+  <div class="progress-info">
+    <span id="progressLabelD" style="color:var(--a)">◈ DAILY — Initialising…</span>
+    <span id="progressPctD">0%</span>
+  </div>
+  <div class="progress-track"><div class="progress-fill daily" id="progressFillD"></div></div>
+</div>
+
+<!-- PROGRESS WEEKLY -->
+<div class="progress-wrap" id="progressW">
+  <div class="progress-info">
+    <span id="progressLabelW" style="color:var(--b)">◈ WEEKLY — Initialising…</span>
+    <span id="progressPctW">0%</span>
+  </div>
+  <div class="progress-track"><div class="progress-fill weekly" id="progressFillW"></div></div>
+</div>
+
+<!-- STATS -->
+<div class="stats" id="statsBar">
+  <div><div class="stat-label" style="color:var(--a)">◈ DAILY SIGNALS</div><div class="stat-val sv-a" id="stTotalD">0</div></div>
+  <div><div class="stat-label" style="color:var(--a)">▲ D-BUY</div><div class="stat-val sv-g" id="stBuyD">0</div></div>
+  <div><div class="stat-label" style="color:var(--a)">▼ D-SELL</div><div class="stat-val sv-r" id="stSellD">0</div></div>
+  <div style="width:1px;background:var(--bd);margin:0 4px;align-self:stretch"></div>
+  <div><div class="stat-label" style="color:var(--b)">◈ WEEKLY SIGNALS</div><div class="stat-val sv-b" id="stTotalW">0</div></div>
+  <div><div class="stat-label" style="color:var(--b)">▲ W-BUY</div><div class="stat-val sv-g" id="stBuyW">0</div></div>
+  <div><div class="stat-label" style="color:var(--b)">▼ W-SELL</div><div class="stat-val sv-r" id="stSellW">0</div></div>
+</div>
+
+<!-- SIGNAL TABS -->
+<div class="tabs">
+  <button class="tab active-all" id="tabAll"  onclick="setTab('all',this)">ALL <span id="cAll" style="opacity:.5">0</span></button>
+  <button class="tab"            id="tabBuy"  onclick="setTab('buy',this)">▲ BUY <span id="cBuy" style="opacity:.5">0</span></button>
+  <button class="tab"            id="tabSell" onclick="setTab('sell',this)">▼ SELL <span id="cSell" style="opacity:.5">0</span></button>
+</div>
+
+<!-- TOOLBAR -->
+<div class="toolbar">
+  <input type="text" id="searchBox" placeholder="Filter symbol / universe…" oninput="renderTable()">
+  <select id="sortSel" onchange="renderTable()">
+    <option value="natural">Sort: BUY first</option>
+    <option value="zscore_asc">Sort: Z-Close ↑ (oversold)</option>
+    <option value="zscore_desc">Sort: Z-Close ↓ (overbought)</option>
+    <option value="sym">Sort: Symbol A–Z</option>
+    <option value="price_desc">Sort: Price ↓</option>
+  </select>
+</div>
+
+<!-- TABLE -->
+<div class="table-wrap" id="tableWrap">
+  <div class="empty" id="emptyState">
+    <h3>NO SIGNALS YET</h3>
+    <p>Press <span style="color:var(--a)">◈ SCAN DAILY</span> or <span style="color:var(--b)">◈ SCAN WEEKLY</span> to start.<br><br>
+    <span style="color:var(--tx3)">You can run both simultaneously.<br>
+    ▲ BUY = HA bearish→bullish + Z-Low ≤ −2<br>
+    ▼ SELL = HA bullish→bearish + Z-High ≥ +2</span></p>
+  </div>
+  <table class="results-table" id="resultsTable" style="display:none">
+    <thead>
+      <tr>
+        <th onclick="colSort('signal')">SIGNAL</th>
+        <th onclick="colSort('symbol')">SYMBOL</th>
+        <th>TF</th>
+        <th onclick="colSort('price')" class="col-hide">PRICE</th>
+        <th onclick="colSort('z_close')">Z-CLOSE</th>
+        <th onclick="colSort('z_high')" class="col-hide">Z-HIGH</th>
+        <th onclick="colSort('z_low')" class="col-hide">Z-LOW</th>
+        <th onclick="colSort('z_open')" class="col-hide">Z-OPEN</th>
+        <th>Z-CHART (8 BARS)</th>
+        <th onclick="colSort('date')" class="col-hide">DATE</th>
+      </tr>
+    </thead>
+    <tbody id="tbody"></tbody>
+  </table>
+</div>
+
+<script>
+// ── STATE ──────────────────────────────────────────────────────────────────
+const results = { daily: [], weekly: [] };
+let activeView = 'daily';   // daily | weekly | both
+let activeTab  = 'all';
+let sortCol    = null;
+let sortDir    = 1;
+const es       = { '1d': null, '1wk': null };
+
+// ── CLOCK ──────────────────────────────────────────────────────────────────
+setInterval(() => {
+  document.getElementById('clock').textContent = new Date().toTimeString().slice(0,8);
+}, 1000);
+
+// ── VIEW SWITCHER ──────────────────────────────────────────────────────────
+function switchView(v) {
+  activeView = v;
+  document.getElementById('tfDaily').className  = 'tf-btn' + (v==='daily'  ? ' active-daily'  : '');
+  document.getElementById('tfWeekly').className = 'tf-btn' + (v==='weekly' ? ' active-weekly' : '');
+  document.getElementById('tfBoth').className   = 'tf-btn' + (v==='both'   ? ' active-weekly' : '');
+  renderTable();
+}
+
+// ── UNIVERSE DROPDOWN ─────────────────────────────────────────────────────
+function toggleUnivDrop(e) {
+  e.stopPropagation();
+  const d = document.getElementById('univDrop');
+  d.style.display = d.style.display === 'none' ? 'block' : 'none';
+}
+document.addEventListener('click', () => {
+  document.getElementById('univDrop').style.display = 'none';
+});
+document.getElementById('univDrop').addEventListener('click', e => e.stopPropagation());
+
+function univAllChanged() {
+  document.querySelectorAll('.univ-cb').forEach(cb => { cb.checked = false; });
+  document.getElementById('univAll').checked = true;
+  updateUnivLabel();
+}
+function univCbChanged() {
+  const checked = Array.from(document.querySelectorAll('.univ-cb:checked'));
+  document.getElementById('univAll').checked = checked.length === 0;
+  updateUnivLabel();
+}
+function updateUnivLabel() {
+  const checked = Array.from(document.querySelectorAll('.univ-cb:checked'));
+  document.getElementById('univLabel').textContent =
+    checked.length === 0 ? '▸ ALL UNIVERSES' :
+    checked.length === 1 ? '▸ ' + checked[0].value :
+    '▸ ' + checked.length + ' UNIVERSES';
+}
+
+// ── SCAN ───────────────────────────────────────────────────────────────────
+function getUniverses() {
+  const checked = Array.from(document.querySelectorAll('.univ-cb:checked')).map(cb => cb.value);
+  return checked.length === 0 ? null : checked;
+}
+
+async function startScan(tf) {
+  const universes = getUniverses();
+  const zPeriod   = parseInt(document.getElementById('zPeriod').value)   || 21;
+  const threshold = parseFloat(document.getElementById('threshold').value) || 2.0;
+  const isDaily   = tf === '1d';
+  const key       = isDaily ? 'daily' : 'weekly';
+
+  results[key] = [];
+  renderTable();
+
+  // toggle buttons
+  document.getElementById(isDaily ? 'btnScanD' : 'btnScanW').style.display = 'none';
+  document.getElementById(isDaily ? 'btnStopD' : 'btnStopW').style.display = 'inline-flex';
+  document.getElementById(isDaily ? 'progressD' : 'progressW').classList.add('show');
+  document.getElementById('statsBar').classList.add('show');
+
+  setStatus(tf, 'SCANNING');
+
+  await fetch('/api/scan', {
+    method: 'POST',
+    headers: {'Content-Type':'application/json'},
+    body: JSON.stringify({ timeframe: tf, universes, z_period: zPeriod, threshold })
+  });
+
+  if (es[tf]) es[tf].close();
+  es[tf] = new EventSource(`/stream?timeframe=${tf}`);
+
+  es[tf].addEventListener('signal', e => {
+    results[key].push(JSON.parse(e.data));
+    renderTable();
+    updateStats();
+  });
+
+  es[tf].addEventListener('progress', e => {
+    const p = JSON.parse(e.data);
+    updateProgress(tf, p.scanned, p.total, p.current);
+  });
+
+  es[tf].addEventListener('done', e => {
+    finishScan(tf, JSON.parse(e.data).finished);
+    es[tf].close();
+  });
+
+  es[tf].onerror = () => { finishScan(tf, null); es[tf].close(); };
+}
+
+function finishScan(tf, time) {
+  const isDaily = tf === '1d';
+  document.getElementById(isDaily ? 'btnScanD' : 'btnScanW').style.display = 'inline-flex';
+  document.getElementById(isDaily ? 'btnStopD' : 'btnStopW').style.display = 'none';
+  document.getElementById(isDaily ? 'progressD' : 'progressW').classList.remove('show');
+  setStatus(tf, 'DONE');
+}
+
+async function stopScan(tf) {
+  await fetch('/api/stop', {
+    method: 'POST',
+    headers: {'Content-Type':'application/json'},
+    body: JSON.stringify({timeframe: tf})
+  });
+  finishScan(tf, null);
+  if (es[tf]) { es[tf].close(); es[tf] = null; }
+}
+
+function setStatus(tf, text) {
+  const isDaily = tf === '1d';
+  const dotEl   = document.getElementById(isDaily ? 'dotDaily'  : 'dotWeekly');
+  const txtEl   = document.getElementById(isDaily ? 'statusDaily' : 'statusWeekly');
+  const prefix  = isDaily ? 'D' : 'W';
+  const color   = text === 'SCANNING' ? (isDaily ? 'var(--a)' : 'var(--b)') : 'var(--tx2)';
+  dotEl.className = 'dot ' + (text === 'SCANNING' ? (isDaily ? 'dot-daily' : 'dot-weekly') : 'dot-idle');
+  txtEl.textContent = `${prefix}:${text}`;
+  txtEl.style.color = color;
+}
+
+function updateProgress(tf, done, total, current) {
+  const isDaily = tf === '1d';
+  const pct = total > 0 ? Math.round(done / total * 100) : 0;
+  document.getElementById(isDaily ? 'progressFillD' : 'progressFillW').style.width = pct + '%';
+  document.getElementById(isDaily ? 'progressPctD'  : 'progressPctW').textContent  = pct + '%';
+  const label = done < total ? `${isDaily?'◈ DAILY':'◈ WEEKLY'} — Scanning ${current}… (${done}/${total})` : `Complete — ${done} symbols`;
+  document.getElementById(isDaily ? 'progressLabelD' : 'progressLabelW').textContent = label;
+}
+
+function clearAll() {
+  results.daily = []; results.weekly = [];
+  renderTable(); updateStats();
+  document.getElementById('statsBar').classList.remove('show');
+  setStatus('1d',  'IDLE');
+  setStatus('1wk', 'IDLE');
+}
+
+function updateStats() {
+  const dBuy  = results.daily.filter(r=>r.signal==='BUY').length;
+  const dSell = results.daily.filter(r=>r.signal==='SELL').length;
+  const wBuy  = results.weekly.filter(r=>r.signal==='BUY').length;
+  const wSell = results.weekly.filter(r=>r.signal==='SELL').length;
+  document.getElementById('stTotalD').textContent = results.daily.length;
+  document.getElementById('stBuyD').textContent   = dBuy;
+  document.getElementById('stSellD').textContent  = dSell;
+  document.getElementById('stTotalW').textContent = results.weekly.length;
+  document.getElementById('stBuyW').textContent   = wBuy;
+  document.getElementById('stSellW').textContent  = wSell;
+
+  const visible = getVisibleRows();
+  const vBuy  = visible.filter(r=>r.signal==='BUY').length;
+  const vSell = visible.filter(r=>r.signal==='SELL').length;
+  document.getElementById('cAll').textContent  = visible.length;
+  document.getElementById('cBuy').textContent  = vBuy;
+  document.getElementById('cSell').textContent = vSell;
+}
+
+// ── TABS ───────────────────────────────────────────────────────────────────
+function setTab(name, btn) {
+  activeTab = name;
+  document.querySelectorAll('.tab').forEach(b => b.className = 'tab');
+  btn.className = 'tab active-' + name;
+  renderTable();
+}
+
+// ── SORT ───────────────────────────────────────────────────────────────────
+function colSort(col) {
+  sortCol = (sortCol === col) ? (sortDir *= -1, col) : (sortDir = 1, col);
+  document.querySelectorAll('.results-table th').forEach(th => th.classList.remove('sort-asc','sort-desc'));
+  const cols = ['signal','symbol','','price','z_close','z_high','z_low','z_open','','date'];
+  const thEl = document.querySelectorAll('.results-table th')[cols.indexOf(col)];
+  if (thEl) thEl.classList.add(sortDir === 1 ? 'sort-asc' : 'sort-desc');
+  renderTable();
+}
+
+function getSorted(rows) {
+  const sel = document.getElementById('sortSel').value;
+  const arr = [...rows];
+  if (sortCol) {
+    arr.sort((a,b) => {
+      const av = a[sortCol], bv = b[sortCol];
+      return typeof av === 'string' ? sortDir*av.localeCompare(bv) : sortDir*(av-bv);
+    });
+    return arr;
+  }
+  if (sel==='zscore_asc')  return arr.sort((a,b)=>a.z_close-b.z_close);
+  if (sel==='zscore_desc') return arr.sort((a,b)=>b.z_close-a.z_close);
+  if (sel==='sym')         return arr.sort((a,b)=>a.symbol.localeCompare(b.symbol));
+  if (sel==='price_desc')  return arr.sort((a,b)=>b.price-a.price);
+  const buys  = arr.filter(r=>r.signal==='BUY').sort((a,b)=>a.z_low-b.z_low);
+  const sells = arr.filter(r=>r.signal==='SELL').sort((a,b)=>b.z_high-a.z_high);
+  return [...buys,...sells];
+}
+
+function getVisibleRows() {
+  let pool = [];
+  if (activeView === 'daily')  pool = results.daily;
+  else if (activeView === 'weekly') pool = results.weekly;
+  else pool = [...results.daily, ...results.weekly];
+
+  const q = document.getElementById('searchBox').value.toLowerCase();
+  return pool.filter(r => {
+    if (activeTab === 'buy'  && r.signal !== 'BUY')  return false;
+    if (activeTab === 'sell' && r.signal !== 'SELL') return false;
+    if (q && !r.symbol.toLowerCase().includes(q) && !r.universe.toLowerCase().includes(q)) return false;
+    return true;
+  });
+}
+
+// ── RENDER ─────────────────────────────────────────────────────────────────
+function renderTable() {
+  const rows  = getSorted(getVisibleRows());
+  const tbody = document.getElementById('tbody');
+  const table = document.getElementById('resultsTable');
+  const empty = document.getElementById('emptyState');
+
+  updateStats();
+
+  if (rows.length === 0) {
+    table.style.display = 'none';
+    empty.style.display = '';
+    const hasAny = results.daily.length + results.weekly.length > 0;
+    empty.innerHTML = hasAny
+      ? '<h3>NO MATCHING SIGNALS</h3><p>Try a different tab, view, or filter.</p>'
+      : `<h3>NO SIGNALS YET</h3><p>Press <span style="color:var(--a)">◈ SCAN DAILY</span> or <span style="color:var(--b)">◈ SCAN WEEKLY</span> to start.</p>`;
+    return;
+  }
+  table.style.display = '';
+  empty.style.display = 'none';
+  tbody.innerHTML = rows.map(buildRow).join('');
+}
+
+// ── ROW ────────────────────────────────────────────────────────────────────
+function zColor(v){
+  if(v<=-3)return'#00d08a';if(v<=-2)return'#00b07a';
+  if(v>=3)return'#ff4f4f';if(v>=2)return'#e03030';return'#7a9ab5';
+}
+function zFmt(v){return(v>=0?'+':'')+v.toFixed(3)}
+function zSpan(v){return`<span style="color:${zColor(v)};font-family:var(--mono);font-weight:${Math.abs(v)>=3?600:400}">${zFmt(v)}</span>`}
+
+function buildMiniSVG(bars, signal) {
+  if (!bars||bars.length<2) return '<span style="color:#3d5468">—</span>';
+  const W=130,H=38,bw=11,gap=2,pad=3;
+  const allH=bars.map(b=>b.high),allL=bars.map(b=>b.low);
+  const maxV=Math.max(...allH,2.5),minV=Math.min(...allL,-2.5),rng=maxV-minV||1;
+  const toY=v=>H-((v-minV)/rng*H);
+  let c='';
+  bars.forEach((b,i)=>{
+    const x=i*(bw+gap)+pad,cx=x+bw/2,bull=b.close>=b.open;
+    const st=bull?'#00d08a':'#ff4f4f',fl=bull?'#002d1e':'#2d0808';
+    const bt=toY(Math.max(b.open,b.close)),bb=toY(Math.min(b.open,b.close)),bh=Math.max(bb-bt,1);
+    c+=`<line x1="${cx.toFixed(1)}" y1="${toY(b.high).toFixed(1)}" x2="${cx.toFixed(1)}" y2="${toY(b.low).toFixed(1)}" stroke="${st}" stroke-width="1"/>`;
+    c+=`<rect x="${x}" y="${bt.toFixed(1)}" width="${bw}" height="${bh.toFixed(1)}" fill="${fl}" stroke="${st}" stroke-width="1"/>`;
+  });
+  const lx=(bars.length-1)*(bw+gap)+pad,lcx=lx+bw/2;
+  const ac=signal==='BUY'?'#00d08a':'#ff4f4f';
+  const ar=signal==='BUY'
+    ?`<polygon points="${lcx},${H-1} ${lcx-5},${H-8} ${lcx+5},${H-8}" fill="${ac}"/>`
+    :`<polygon points="${lcx},1 ${lcx-5},8 ${lcx+5},8" fill="${ac}"/>`;
+  const z2=toY(2),zn2=toY(-2),z0=toY(0);
+  const lines=
+    `<line x1="0" y1="${z2.toFixed(1)}" x2="${W}" y2="${z2.toFixed(1)}" stroke="#ff4f4f" stroke-width="0.5" stroke-dasharray="2,2" opacity="0.5"/>`+
+    `<line x1="0" y1="${zn2.toFixed(1)}" x2="${W}" y2="${zn2.toFixed(1)}" stroke="#00d08a" stroke-width="0.5" stroke-dasharray="2,2" opacity="0.5"/>`+
+    `<line x1="0" y1="${z0.toFixed(1)}" x2="${W}" y2="${z0.toFixed(1)}" stroke="#3d5468" stroke-width="0.5" opacity="0.6"/>`;
+  return `<svg width="${W}" height="${H}" viewBox="0 0 ${W} ${H}" style="display:block">${lines}${c}${ar}</svg>`;
+}
+
+function buildRow(r) {
+  const isBuy  = r.signal === 'BUY';
+  const isDaily = r.timeframe === 'Daily';
+  const badge  = `<span class="badge badge-${isBuy?'buy':'sell'}">${isBuy?'▲ BUY':'▼ SELL'}</span>`;
+  const tfTag  = isDaily
+    ? `<span class="tf-tag-d">D</span>`
+    : `<span class="tf-tag-w">W</span>`;
+  const price  = r.price < 1 ? `$${r.price.toFixed(4)}` : `$${r.price.toFixed(2)}`;
+  return `<tr class="result-row">
+    <td>${badge}</td>
+    <td><span class="sym">${r.symbol}${tfTag}</span><span class="univ">${r.universe}</span></td>
+    <td class="mono dim" style="font-size:10px">${r.timeframe}</td>
+    <td class="price mono col-hide">${price}</td>
+    <td>${zSpan(r.z_close)}</td>
+    <td class="col-hide">${zSpan(r.z_high)}</td>
+    <td class="col-hide">${zSpan(r.z_low)}</td>
+    <td class="col-hide">${zSpan(r.z_open)}</td>
+    <td class="chart-cell">${buildMiniSVG(r.bars,r.signal)}</td>
+    <td class="mono dim col-hide">${r.date}</td>
+  </tr>`;
+}
+</script>
+</body>
+</html>
