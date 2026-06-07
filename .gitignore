@@ -1,0 +1,11 @@
+__pycache__/
+*.pyc
+*.pyo
+venv/
+.env
+portfolio.json
+lstm_results.json
+nsga2_results.json
+*.log
+.DS_Store
+{templates,static/
