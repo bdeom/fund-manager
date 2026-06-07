@@ -163,7 +163,7 @@ def compute_drift_and_signals(portfolio, prices):
 # ─────────────────────────────────────────────
 # LSTM — inline thread
 # ─────────────────────────────────────────────
-def _lstm_forecast_single(prices_array, forecast_days=10, lookback=30, epochs=60):
+def _lstm_forecast_single(prices_array, forecast_days=10, lookback=20, epochs=30):
     """Try PyTorch LSTM first, fall back to sklearn ensemble if torch unavailable."""
     series = prices_array.reshape(-1, 1)
     if len(series) < lookback + 20:
@@ -221,10 +221,9 @@ def _lstm_forecast_single(prices_array, forecast_days=10, lookback=30, epochs=60
     except Exception as torch_err:
         print(f"[LSTM] PyTorch unavailable ({torch_err}), using sklearn ensemble")
 
-    # ── Fallback: Ridge + GBM ensemble ──
+    # ── Fallback: Fast Ridge + momentum model (runs in <2s per ticker) ──
     try:
         from sklearn.linear_model import Ridge
-        from sklearn.ensemble import GradientBoostingRegressor
 
         X, y = [], []
         for i in range(len(scaled) - lookback):
@@ -232,16 +231,19 @@ def _lstm_forecast_single(prices_array, forecast_days=10, lookback=30, epochs=60
             y.append(scaled[i+lookback][0])
         X, y = np.array(X), np.array(y)
 
-        ridge = Ridge(alpha=1.0).fit(X, y)
-        gbm   = GradientBoostingRegressor(n_estimators=80, max_depth=3,
-                                           learning_rate=0.05, random_state=42).fit(X, y)
+        model = Ridge(alpha=0.5).fit(X, y)
+
+        # Add momentum signal: recent trend direction
+        recent_trend = float(scaled[-1][0] - scaled[-lookback//2][0])
 
         seq = scaled[-lookback:].flatten()
         preds = []
-        for _ in range(forecast_days):
-            feat = seq.reshape(1, -1)
-            pred = (ridge.predict(feat)[0] + gbm.predict(feat)[0]) / 2
-            preds.append(float(pred))
+        for step in range(forecast_days):
+            pred = model.predict(seq.reshape(1, -1))[0]
+            # Dampen momentum over horizon
+            momentum = recent_trend * (1 - step/forecast_days) * 0.3
+            pred = float(np.clip(pred + momentum, 0.05, 0.95))
+            preds.append(pred)
             seq = np.append(seq[1:], pred)
 
         forecast = scaler.inverse_transform(np.array(preds).reshape(-1,1)).flatten()
