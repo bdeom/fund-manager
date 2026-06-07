@@ -1,0 +1,38 @@
+{
+  "holdings": {
+    "ENEL.MI": {
+      "shares": 92.98308059,
+      "avg_cost": 9.63,
+      "target_pct": 16.67
+    },
+    "DUK": {
+      "shares": 8.51087359,
+      "avg_cost": 124.65,
+      "target_pct": 16.67
+    },
+    "JNJ": {
+      "shares": 4.46535812,
+      "avg_cost": 223.5,
+      "target_pct": 16.67
+    },
+    "IBE.MC": {
+      "shares": 50.79286624,
+      "avg_cost": 19.63,
+      "target_pct": 16.67
+    },
+    "WMT": {
+      "shares": 8.62541368,
+      "avg_cost": 115.72,
+      "target_pct": 16.67
+    },
+    "GOOGL": {
+      "shares": 2.7112762,
+      "avg_cost": 368.83,
+      "target_pct": 16.65
+    }
+  },
+  "cash": 0.0,
+  "transactions": [],
+  "alerts": [],
+  "created": "2026-06-07T19:40:15.587942"
+}
