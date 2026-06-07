@@ -3,7 +3,6 @@ __pycache__/
 *.pyo
 venv/
 .env
-portfolio.json
 lstm_results.json
 nsga2_results.json
 *.log
