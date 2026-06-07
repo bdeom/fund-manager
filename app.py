@@ -275,7 +275,7 @@ def _run_lstm_job(job_id, tickers):
                 "forecast_prices":    [round(v, 2) for v in forecast_vals],
                 "expected_return": round(exp_return, 2),
                 "signal":          signal,
-                "dates": [(datetime.now()+timedelta(days=j+1)).strftime("%m/%d") for j in range(forecast_days)]
+                "dates": [(datetime.now()+timedelta(days=j+1)).strftime("%m/%d") for j in range(days)]
             }
         except Exception as e:
             results[ticker] = {"error": str(e)}
