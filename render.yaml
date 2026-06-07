@@ -1,0 +1,15 @@
+services:
+  - type: web
+    name: fund-manager
+    env: python
+    region: frankfurt
+    plan: free
+    buildCommand: pip install -r requirements.txt && pip install torch==2.1.2 --index-url https://download.pytorch.org/whl/cpu
+    startCommand: gunicorn app:app --bind 0.0.0.0:$PORT --workers 1 --timeout 600 --preload
+    envVars:
+      - key: APP_PASSWORD
+        value: fundmgr2024
+      - key: SECRET_KEY
+        value: xK9mP2qL8nR5jQ7
+      - key: PYTHON_VERSION
+        value: 3.11.0
