@@ -534,6 +534,110 @@ def optimize_status(job_id):
     with _jobs_lock:
         return jsonify(_jobs.get(job_id, {"status": "unknown"}))
 
+
+# ─────────────────────────────────────────────
+# ROUTES — IMPORT / EXPORT
+# ─────────────────────────────────────────────
+@app.route("/api/portfolio/export", methods=["GET"])
+def export_portfolio():
+    """Export holdings in Revolut-compatible JSON format"""
+    p = load_portfolio()
+    export = []
+    for ticker, h in p["holdings"].items():
+        export.append({
+            "ticker":   ticker,
+            "shares":   h["shares"],
+            "avgCost":  h["avg_cost"],
+            "target_pct": h["target_pct"],
+            "exchange": "NYSE/NASDAQ",
+            "ccy":      "USD"
+        })
+    return jsonify(export)
+
+@app.route("/api/portfolio/import", methods=["POST"])
+def import_portfolio():
+    """Import holdings from Revolut-compatible JSON format.
+    Supports both array format and {holdings: [...]} format.
+    Fields: ticker, shares, avgCost (or avg_cost), target_pct (optional)
+    """
+    data = request.json
+    if not data:
+        return jsonify({"error": "No data provided"}), 400
+
+    # Handle both array and object formats
+    if isinstance(data, list):
+        items = data
+    elif isinstance(data, dict) and "holdings" in data:
+        items = data["holdings"] if isinstance(data["holdings"], list) else                 [{"ticker": k, **v} for k, v in data["holdings"].items()]
+    else:
+        return jsonify({"error": "Invalid format. Expected array or {holdings: [...]}"}), 400
+
+    p = load_portfolio()
+    imported = []
+    skipped  = []
+
+    for item in items:
+        ticker = item.get("ticker", "").upper().strip()
+        if not ticker:
+            continue
+        try:
+            shares   = float(item.get("shares", 0))
+            avg_cost = float(item.get("avgCost") or item.get("avg_cost", 0))
+            target   = float(item.get("target_pct", 0))
+            if shares <= 0 or avg_cost <= 0:
+                skipped.append(ticker)
+                continue
+            p["holdings"][ticker] = {
+                "shares":     shares,
+                "avg_cost":   avg_cost,
+                "target_pct": target
+            }
+            imported.append(ticker)
+        except Exception as e:
+            skipped.append(f"{ticker}({e})")
+
+    # Normalize target_pct if all zero
+    total_t = sum(h["target_pct"] for h in p["holdings"].values())
+    if total_t > 0:
+        for h in p["holdings"].values():
+            h["target_pct"] = round(h["target_pct"] / total_t * 100, 2)
+
+    save_portfolio(p)
+    return jsonify({"ok": True, "imported": imported, "skipped": skipped,
+                    "total_holdings": len(p["holdings"])})
+
+@app.route("/api/portfolio/replace", methods=["POST"])
+def replace_portfolio():
+    """Replace ALL holdings with imported data (destructive import)"""
+    data = request.json
+    if not data:
+        return jsonify({"error": "No data provided"}), 400
+
+    items = data if isinstance(data, list) else data.get("holdings", [])
+    if isinstance(items, dict):
+        items = [{"ticker": k, **v} for k, v in items.items()]
+
+    p = load_portfolio()
+    p["holdings"] = {}
+    imported = []
+
+    for item in items:
+        ticker = item.get("ticker", "").upper().strip()
+        if not ticker:
+            continue
+        try:
+            shares   = float(item.get("shares", 0))
+            avg_cost = float(item.get("avgCost") or item.get("avg_cost", 0))
+            target   = float(item.get("target_pct", 0))
+            if shares > 0 and avg_cost > 0:
+                p["holdings"][ticker] = {"shares": shares, "avg_cost": avg_cost, "target_pct": target}
+                imported.append(ticker)
+        except:
+            pass
+
+    save_portfolio(p)
+    return jsonify({"ok": True, "imported": imported, "total": len(imported)})
+
 # ─────────────────────────────────────────────
 # MAIN
 # ─────────────────────────────────────────────

@@ -582,6 +582,8 @@ tbody td:first-child { text-align: left; }
     <div>DAY P&amp;L: <span id="headerPnl">—</span></div>
   </div>
   <div class="header-actions">
+    <button class="btn btn-ghost btn-sm" onclick="openImportModal()">↑ IMPORT</button>
+    <button class="btn btn-ghost btn-sm" onclick="exportPortfolio()">↓ EXPORT</button>
     <button class="btn btn-ghost btn-sm" onclick="openAddModal()">+ ADD POSITION</button>
     <button class="btn btn-primary btn-sm" onclick="forceRefresh()">↻ REFRESH</button>
   </div>
@@ -813,6 +815,27 @@ tbody td:first-child { text-align: left; }
     <div class="modal-actions">
       <button class="btn btn-ghost" onclick="closeModal('tradeModal')">Cancel</button>
       <button class="btn btn-primary" onclick="submitTrade()">CONFIRM TRADE</button>
+    </div>
+  </div>
+</div>
+
+
+<!-- ─── IMPORT MODAL ─── -->
+<div class="modal-overlay" id="importModal">
+  <div class="modal" style="width:500px">
+    <div class="modal-title">IMPORT HOLDINGS</div>
+    <div style="font-family:var(--font-mono);font-size:11px;color:var(--muted);margin-bottom:12px">
+      Paste Revolut JSON or any array with ticker/shares/avgCost fields.<br>
+      <span style="color:var(--yellow)">⚠ REPLACE clears existing holdings. MERGE adds/updates.</span>
+    </div>
+    <div class="form-group">
+      <label class="form-label">JSON Data</label>
+      <textarea class="form-input" id="importJson" rows="8" placeholder='[{"ticker":"AAPL","shares":10,"avgCost":150},...]' style="resize:vertical;font-size:11px;line-height:1.5"></textarea>
+    </div>
+    <div class="modal-actions">
+      <button class="btn btn-ghost" onclick="closeModal('importModal')">Cancel</button>
+      <button class="btn btn-ghost" onclick="submitImport('merge')">MERGE</button>
+      <button class="btn btn-danger" onclick="submitImport('replace')">REPLACE ALL</button>
     </div>
   </div>
 </div>
@@ -1486,6 +1509,60 @@ function toast(msg, type='ok') {
   el.className = `toast show ${type}`;
   clearTimeout(_toastTimer);
   _toastTimer = setTimeout(() => el.classList.remove('show'), 3500);
+}
+
+
+// ─────────────────────────────────────────────
+// IMPORT / EXPORT
+// ─────────────────────────────────────────────
+function openImportModal() {
+  document.getElementById('importJson').value = '';
+  openModal('importModal');
+}
+
+async function submitImport(mode) {
+  const raw = document.getElementById('importJson').value.trim();
+  if (!raw) { toast('Paste JSON data first', 'err'); return; }
+
+  let data;
+  try { data = JSON.parse(raw); }
+  catch(e) { toast('Invalid JSON: ' + e.message, 'err'); return; }
+
+  const url = mode === 'replace' ? '/api/portfolio/replace' : '/api/portfolio/import';
+  try {
+    const res = await fetch(url, {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify(data)
+    });
+    const d = await res.json();
+    if (d.ok) {
+      toast(`Imported ${d.imported?.length || d.total} holdings ✓`, 'ok');
+      closeModal('importModal');
+      await loadPortfolio();
+    } else {
+      toast('Import failed: ' + (d.error || 'Unknown'), 'err');
+    }
+  } catch(e) {
+    toast('Error: ' + e.message, 'err');
+  }
+}
+
+async function exportPortfolio() {
+  try {
+    const res  = await fetch('/api/portfolio/export');
+    const data = await res.json();
+    const blob = new Blob([JSON.stringify(data, null, 2)], {type: 'application/json'});
+    const url  = URL.createObjectURL(blob);
+    const a    = document.createElement('a');
+    a.href     = url;
+    a.download = `portfolio_${new Date().toISOString().slice(0,10)}.json`;
+    a.click();
+    URL.revokeObjectURL(url);
+    toast('Portfolio exported ✓', 'ok');
+  } catch(e) {
+    toast('Export failed: ' + e.message, 'err');
+  }
 }
 
 // ─────────────────────────────────────────────
