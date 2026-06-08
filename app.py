@@ -255,7 +255,7 @@ def _lstm_forecast_single(prices_array, forecast_days=10, lookback=20, epochs=30
         print(f"[LSTM] Fallback also failed: {e}")
         return None, None
 
-def _run_lstm_job(job_id, tickers):
+def _run_lstm_job(job_id, tickers, horizons=(10, 30, 90)):
     with _jobs_lock:
         _jobs[job_id] = {"status": "running", "started": datetime.now().isoformat()}
     results = {}
@@ -266,18 +266,27 @@ def _run_lstm_job(job_id, tickers):
                 results[ticker] = {"error": "Insufficient data"}
                 continue
             prices = df["Close"].squeeze().dropna().values
-            forecast_vals, exp_return = _lstm_forecast_single(prices)
-            if forecast_vals is None:
-                results[ticker] = {"error": "Model failed"}
-                continue
-            signal = "BULLISH" if exp_return > 2 else ("BEARISH" if exp_return < -2 else "NEUTRAL")
-            results[ticker] = {
-                "current_price":   round(float(prices[-1]), 2),
-                "forecast_prices":    [round(v, 2) for v in forecast_vals],
-                "expected_return": round(exp_return, 2),
-                "signal":          signal,
-                "dates": [(datetime.now()+timedelta(days=j+1)).strftime("%m/%d") for j in range(days)]
-            }
+            current_price = round(float(prices[-1]), 2)
+            ticker_result = {"current_price": current_price, "horizons": {}}
+
+            for horizon in horizons:
+                forecast_vals, exp_return = _lstm_forecast_single(prices, forecast_days=horizon)
+                if forecast_vals is None:
+                    continue
+                signal = "BULLISH" if exp_return > 2 else ("BEARISH" if exp_return < -2 else "NEUTRAL")
+                ticker_result["horizons"][str(horizon)] = {
+                    "forecast_prices": [round(v, 2) for v in forecast_vals],
+                    "expected_return": round(exp_return, 2),
+                    "signal":          signal,
+                    "dates":           [(datetime.now()+timedelta(days=j+1)).strftime("%m/%d")
+                                        for j in range(horizon)]
+                }
+
+            h10 = ticker_result["horizons"].get("10", {})
+            ticker_result["signal"]          = h10.get("signal", "NEUTRAL")
+            ticker_result["expected_return"] = h10.get("expected_return", 0)
+            results[ticker] = ticker_result
+
         except Exception as e:
             results[ticker] = {"error": str(e)}
 
