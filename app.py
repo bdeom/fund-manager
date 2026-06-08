@@ -55,8 +55,9 @@ def require_login():
     if request.endpoint in ("login", "static", "logout"):
         return
     if not check_auth():
-        if request.path.startswith("/api/"):
-            return jsonify({"error": "Unauthorized"}), 401
+        # Always return JSON for API routes - never redirect
+        if request.path.startswith("/api/") or request.is_json:
+            return jsonify({"error": "Unauthorized - please login first"}), 401
         return redirect(url_for("login"))
 
 # ─────────────────────────────────────────────
